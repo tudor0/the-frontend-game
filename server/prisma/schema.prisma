@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. UTILIZATORUL
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String?        // <--- Am pus '?' (Nullable)
+  name          String
+  avatarUrl     String?        
+  createdAt     DateTime       @default(now())
+
+  scores        Score[]
+  attempts      LevelAttempt[]
+  refreshTokens RefreshToken[]
+}
+
+// 2. REFRESH TOKENS (Sistemul de Auth)
+// Aici stocăm token-urile de lungă durată (7 zile).
+// Dacă userul dă Logout, ștergem intrarea de aici.
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  // Dacă ștergem userul, se șterg și tokenii lui (Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// 3. SESIUNE ACTIVĂ (Timer & Tracking temporar)
+model LevelAttempt {
+  id            String   @id @default(uuid())
+  userId        String
+  gameId        String   
+  
+  startedAt     DateTime @default(now()) 
+  hintsUsed     Boolean  @default(false) 
+  wrongAttempts Int      @default(0)     
+  
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, gameId]) 
+}
+
+// 4. SCOR FINAL (Istoric & Leaderboard)
+model Score {
+  id              String   @id @default(uuid())
+  userId          String
+  gameId          String
+  
+  value           Int      
+  durationSeconds Int      
+  wrongAttempts   Int      
+  hintsUsed       Boolean  
+  
+  createdAt       DateTime @default(now()) 
+  user            User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, gameId]) 
+  @@index([gameId, durationSeconds]) 
+}
