@@ -198,30 +198,41 @@ router.get(
         _count: { _all: true }
       });
       const hintsMap = Object.fromEntries(
-        hintsAgg.map((h) => [h.userId, h._count?._all ?? 0])
+        hintsAgg.map((h: { userId: any; _count: { _all: any } }) => [
+          h.userId,
+          h._count?._all ?? 0
+        ])
       );
 
-      const userIds = top.map((t) => t.userId);
+      const userIds = top.map((t: { userId: any }) => t.userId);
       const users = await prisma.user.findMany({
         where: { id: { in: userIds } },
         select: { id: true, name: true, email: true, avatarUrl: true }
       });
-      const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
+      const userMap = Object.fromEntries(
+        users.map((u: { id: any }) => [u.id, u])
+      );
 
-      const result = top.map((entry) => {
-        const user = userMap[entry.userId];
-        return {
-          userId: entry.userId,
-          name: user?.name || "Unknown",
-          email: user?.email || "",
-          avatarUrl: user?.avatarUrl || null,
-          totalScore: entry._sum?.value ?? 0,
-          solved: (entry as any)._count?.gameId ?? 0,
-          avgDurationSeconds: entry._avg?.durationSeconds ?? null,
-          totalHintsUsed: hintsMap[entry.userId] ?? 0,
-          totalWrongAttempts: entry._sum?.wrongAttempts ?? 0
-        };
-      });
+      const result = top.map(
+        (entry: {
+          userId: string | number;
+          _sum: { value: any; wrongAttempts: any };
+          _avg: { durationSeconds: any };
+        }) => {
+          const user = userMap[entry.userId];
+          return {
+            userId: entry.userId,
+            name: user?.name || "Unknown",
+            email: user?.email || "",
+            avatarUrl: user?.avatarUrl || null,
+            totalScore: entry._sum?.value ?? 0,
+            solved: (entry as any)._count?.gameId ?? 0,
+            avgDurationSeconds: entry._avg?.durationSeconds ?? null,
+            totalHintsUsed: hintsMap[entry.userId] ?? 0,
+            totalWrongAttempts: entry._sum?.wrongAttempts ?? 0
+          };
+        }
+      );
 
       res.json(result);
     } catch (e) {
@@ -248,17 +259,27 @@ router.get(
         }
       });
 
-      const result = scores.map((s) => ({
-        userId: s.userId,
-        name: s.user?.name ?? "Unknown",
-        email: s.user?.email ?? "",
-        avatarUrl: s.user?.avatarUrl ?? null,
-        durationSeconds: s.durationSeconds,
-        value: s.value,
-        hintsUsed: s.hintsUsed,
-        wrongAttempts: s.wrongAttempts,
-        createdAt: s.createdAt
-      }));
+      const result = scores.map(
+        (s: {
+          userId: any;
+          user: { name: any; email: any; avatarUrl: any };
+          durationSeconds: any;
+          value: any;
+          hintsUsed: any;
+          wrongAttempts: any;
+          createdAt: any;
+        }) => ({
+          userId: s.userId,
+          name: s.user?.name ?? "Unknown",
+          email: s.user?.email ?? "",
+          avatarUrl: s.user?.avatarUrl ?? null,
+          durationSeconds: s.durationSeconds,
+          value: s.value,
+          hintsUsed: s.hintsUsed,
+          wrongAttempts: s.wrongAttempts,
+          createdAt: s.createdAt
+        })
+      );
 
       res.json(result);
     } catch (e) {
