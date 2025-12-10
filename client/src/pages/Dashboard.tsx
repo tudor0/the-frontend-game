@@ -18,16 +18,19 @@ export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<any[]>([]);
+  const [loadingStats, setLoadingStats] = useState(true);
   const [difficultyFilter, setDifficultyFilter] = useState<
     "All" | "Easy" | "Medium" | "Hard"
   >("All");
 
   // Luăm statisticile de la backend când intrăm pe pagină
   useEffect(() => {
+    setLoadingStats(true);
     api
       .get("/games/my-stats")
       .then((res) => setStats(res.data))
-      .catch(console.error);
+      .catch(() => setStats([]))
+      .finally(() => setLoadingStats(false));
   }, []);
 
   // Calculăm progresul
@@ -82,7 +85,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats.length} / {LEVELS.length}
+              {loadingStats ? "…" : `${stats.length} / ${LEVELS.length}`}
             </div>
           </CardContent>
         </Card>
@@ -94,7 +97,9 @@ export default function Dashboard() {
             <Trophy className="w-4 h-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalScore} pts</div>
+            <div className="text-2xl font-bold">
+              {loadingStats ? "…" : `${totalScore} pts`}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -169,7 +174,9 @@ export default function Dashboard() {
                   <CardDescription>{level.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {isSolved ? (
+                  {loadingStats ? (
+                    <div className="text-sm text-slate-400">Loading stats…</div>
+                  ) : isSolved ? (
                     <div className="text-sm text-emerald-700 flex items-center gap-2">
                       <Timer className="w-4 h-4" /> Solved in{" "}
                       {levelStat.durationSeconds}s
