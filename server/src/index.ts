@@ -12,7 +12,7 @@ const prisma = new PrismaClient(); // (Optional aici, folosit in rute)
 // Critic: "credentials: true" permite Frontend-ului să primească Cookie-ul
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "https://the-frontend-game.vercel.app"],
     credentials: true,
     exposedHeaders: ["X-Secret-Flag"]
   })
