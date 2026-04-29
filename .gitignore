@@ -1,0 +1,7 @@
+# Ignore everything at the repo root
+/*
+
+# Track only client and server folders (and this gitignore)
+!/client/
+!/server/
+!/.gitignore

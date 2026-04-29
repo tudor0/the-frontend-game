@@ -21,7 +21,27 @@ export default function Level9() {
       gameId="level-9"
       title="Level 9: 404 Founder"
       description="Missing pages can still carry data."
-      hintText="Open the Network tab and inspect the 404 JSON response.">
+      hintText="A request that finds nothing can still come back with something."
+      tutorial={
+        <>
+          <p>
+            <strong>Concept:</strong> a <code>404 Not Found</code> is{" "}
+            still a real HTTP response. The status code reports
+            "resource not here," but the response always has headers and
+            usually a body. Many APIs send a structured JSON 404 with
+            details about what was missing and what to try next.
+          </p>
+          <p>
+            <strong>Why it matters:</strong> never throw away error
+            responses. Front-end <code>fetch</code>/<code>axios</code>{" "}
+            error handlers should read <code>response.data</code> /{" "}
+            <code>response.body</code> on failed requests — not just{" "}
+            <code>response.status</code>. That's how you surface the right
+            error message to the user instead of a generic "Something
+            went wrong".
+          </p>
+        </>
+      }>
       <div className="text-center">
         <p className="font-mono text-sm bg-black text-emerald-400 p-4 rounded">
           {msg}

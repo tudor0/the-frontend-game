@@ -53,8 +53,17 @@ const getValidAccessToken = async () => {
   return await refreshAccessToken();
 };
 
+// Auth endpoints handle their own credentials — they must never piggy-back on
+// an existing refresh-token cookie. Without this, a failed /auth/login (401)
+// would silently call /auth/refresh, mint a new access token for the previous
+// session, and look like a successful "log in with anything you type".
+const AUTH_PATHS = ["/auth/login", "/auth/register", "/auth/google", "/auth/refresh", "/auth/logout"];
+const isAuthPath = (url?: string) =>
+  !!url && AUTH_PATHS.some((p) => url.endsWith(p));
+
 // Request interceptor: ensure token is fresh before sending
 api.interceptors.request.use(async (config) => {
+  if (isAuthPath(config.url)) return config;
   const token = await getValidAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -62,7 +71,8 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Response interceptor: retry once on 401/403 after refresh
+// Response interceptor: retry once on 401/403 after refresh — but never for
+// auth endpoints (login/register/google) so credential failures stay failures.
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -70,7 +80,8 @@ api.interceptors.response.use(
 
     if (
       (error.response?.status === 401 || error.response?.status === 403) &&
-      !originalRequest._retry
+      !originalRequest._retry &&
+      !isAuthPath(originalRequest?.url)
     ) {
       originalRequest._retry = true;
       const newToken = await refreshAccessToken();

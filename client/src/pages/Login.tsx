@@ -15,19 +15,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Login clasic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
     try {
       if (isLogin) {
         const res = await api.post("/auth/login", { email, password });
@@ -41,6 +45,8 @@ export default function Login() {
       }
     } catch (err: any) {
       toast.error(err.response?.data?.error || "An error occurred");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -62,13 +68,13 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 flex items-center justify-center px-4 py-10">
-      <Card className="w-full max-w-lg shadow-2xl border border-slate-200/80 bg-white/95 backdrop-blur">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center px-4 py-10">
+      <Card className="w-full max-w-lg shadow-2xl border border-slate-200/80 dark:border-slate-800 bg-white/95 dark:bg-slate-900/90 backdrop-blur">
         <CardHeader className="text-center space-y-1 pb-4">
-          <CardTitle className="text-3xl font-bold text-slate-900">
+          <CardTitle className="text-3xl font-bold text-slate-900 dark:text-slate-50">
             The Frontend Game
           </CardTitle>
-          <CardDescription className="text-slate-600">
+          <CardDescription className="text-slate-600 dark:text-slate-400">
             {isLogin ? "Sign in to continue" : "Create an account"}
           </CardDescription>
         </CardHeader>
@@ -86,10 +92,10 @@ export default function Login() {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-slate-200" />
+              <span className="w-full border-t border-slate-200 dark:border-slate-700" />
             </div>
             <div className="relative flex justify-center text-[11px] uppercase tracking-wide">
-              <span className="bg-white px-3 text-slate-500">
+              <span className="bg-white dark:bg-slate-900 px-3 text-slate-500 dark:text-slate-400">
                 Or continue with
               </span>
             </div>
@@ -101,7 +107,7 @@ export default function Login() {
               <div className="space-y-2">
                 <Label
                   htmlFor="name"
-                  className="text-sm font-medium text-slate-700">
+                  className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Full Name
                 </Label>
                 <Input
@@ -117,7 +123,7 @@ export default function Login() {
             <div className="space-y-2">
               <Label
                 htmlFor="email"
-                className="text-sm font-medium text-slate-700">
+                className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Email
               </Label>
               <Input
@@ -133,31 +139,53 @@ export default function Login() {
             <div className="space-y-2">
               <Label
                 htmlFor="password"
-                className="text-sm font-medium text-slate-700">
+                className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Password
               </Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Your password"
+                  className="pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <Button
               type="submit"
-              className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold">
-              {isLogin ? "Sign In" : "Create Account"}
+              disabled={submitting}
+              className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold gap-2">
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {submitting
+                ? isLogin
+                  ? "Signing in…"
+                  : "Creating account…"
+                : isLogin
+                ? "Sign In"
+                : "Create Account"}
             </Button>
           </form>
         </CardContent>
 
-        <CardFooter className="flex justify-center border-t border-slate-100 bg-slate-50/60 px-6 py-4">
+        <CardFooter className="flex justify-center border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40 px-6 py-4">
           <Button
             variant="link"
-            className="text-slate-700"
+            className="text-slate-700 dark:text-slate-300"
             onClick={() => setIsLogin(!isLogin)}>
             {isLogin
               ? "Need an account? Register"

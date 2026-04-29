@@ -9,6 +9,7 @@ import { useAuth } from "./context/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Leaderboard from "./pages/Leaderboard";
+import Tutorial from "./pages/Tutorial";
 
 import type { JSX } from "react";
 import Level1 from "./components/game/Level1";
@@ -91,6 +92,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Leaderboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tutorial"
+          element={
+            <ProtectedRoute>
+              <Tutorial />
             </ProtectedRoute>
           }
         />

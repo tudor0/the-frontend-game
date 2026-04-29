@@ -48,17 +48,27 @@ router.post("/start", authenticateToken, async (req: AuthRequest, res: any) => {
   const existingScore = await prisma.score.findUnique({
     where: { userId_gameId: { userId, gameId } }
   });
-  if (existingScore) return res.json({ status: "completed" });
+  if (existingScore)
+    return res.json({
+      status: "completed",
+      durationSeconds: existingScore.durationSeconds,
+      hintsUsed: existingScore.hintsUsed,
+      value: existingScore.value
+    });
 
-  // 2. Căutăm sesiunea activă
-  let attempt = await prisma.levelAttempt.findUnique({
-    where: { userId_gameId: { userId, gameId } }
-  });
-
-  // 3. Dacă nu există, o creăm (Timer Start)
-  if (!attempt) {
+  // 2. Pornim sau reluăm sesiunea. StrictMode (și retry-urile axios) trimit
+  //    două POST-uri /start aproape simultan, iar Prisma `upsert` nu e atomic
+  //    împotriva inserturilor concurente — așa că try-create, iar dacă cad
+  //    pe unique constraint (P2002) reîncărcăm rândul existent.
+  let attempt;
+  try {
     attempt = await prisma.levelAttempt.create({
       data: { userId, gameId }
+    });
+  } catch (e: any) {
+    if (e?.code !== "P2002") throw e;
+    attempt = await prisma.levelAttempt.findUniqueOrThrow({
+      where: { userId_gameId: { userId, gameId } }
     });
   }
 
@@ -207,7 +217,7 @@ router.get(
       const userIds = top.map((t: { userId: any }) => t.userId);
       const users = await prisma.user.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, name: true, email: true, avatarUrl: true }
+        select: { id: true, name: true, avatarUrl: true }
       });
       const userMap = Object.fromEntries(
         users.map((u: { id: any }) => [u.id, u])
@@ -223,7 +233,6 @@ router.get(
           return {
             userId: entry.userId,
             name: user?.name || "Unknown",
-            email: user?.email || "",
             avatarUrl: user?.avatarUrl || null,
             totalScore: entry._sum?.value ?? 0,
             solved: (entry as any)._count?.gameId ?? 0,
@@ -254,7 +263,7 @@ router.get(
         take: 10,
         include: {
           user: {
-            select: { id: true, name: true, email: true, avatarUrl: true }
+            select: { id: true, name: true, avatarUrl: true }
           }
         }
       });
@@ -262,7 +271,7 @@ router.get(
       const result = scores.map(
         (s: {
           userId: any;
-          user: { name: any; email: any; avatarUrl: any };
+          user: { name: any; avatarUrl: any };
           durationSeconds: any;
           value: any;
           hintsUsed: any;
@@ -271,7 +280,6 @@ router.get(
         }) => ({
           userId: s.userId,
           name: s.user?.name ?? "Unknown",
-          email: s.user?.email ?? "",
           avatarUrl: s.user?.avatarUrl ?? null,
           durationSeconds: s.durationSeconds,
           value: s.value,
