@@ -22,6 +22,10 @@ export const sendRefreshTokenCookie = (res: Response, token: string) => {
     httpOnly: true, // Frontend-ul NU poate citi acest cookie (Anti-XSS)
     path: "/api/auth/refresh", // Se trimite doar la ruta de refresh
     secure: process.env.NODE_ENV === "production", // HTTPS în producție
+    // În producție frontend-ul (Vercel) și API-ul sunt pe domenii diferite,
+    // deci cookie-ul trebuie trimis cross-site: SameSite=None cere Secure.
+    // Pe localhost (same-site) Lax e suficient și nu cere HTTPS.
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 zile
   });
 };

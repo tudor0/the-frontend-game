@@ -169,7 +169,13 @@ router.post("/logout", async (req, res) => {
   const token = req.cookies.jid;
   if (token)
     await prisma.refreshToken.delete({ where: { token } }).catch(() => {});
-  res.clearCookie("jid", { path: "/api/auth/refresh" });
+  // Opțiunile trebuie să coincidă cu cele de la setare, altfel browserul nu șterge cookie-ul
+  res.clearCookie("jid", {
+    path: "/api/auth/refresh",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
+  });
   res.json({ message: "Logged out" });
 });
 

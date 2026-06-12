@@ -43,15 +43,27 @@ router.post("/start", auth_1.authenticateToken, async (req, res) => {
         where: { userId_gameId: { userId, gameId } }
     });
     if (existingScore)
-        return res.json({ status: "completed" });
-    // 2. Căutăm sesiunea activă
-    let attempt = await prisma.levelAttempt.findUnique({
-        where: { userId_gameId: { userId, gameId } }
-    });
-    // 3. Dacă nu există, o creăm (Timer Start)
-    if (!attempt) {
+        return res.json({
+            status: "completed",
+            durationSeconds: existingScore.durationSeconds,
+            hintsUsed: existingScore.hintsUsed,
+            value: existingScore.value
+        });
+    // 2. Pornim sau reluăm sesiunea. StrictMode (și retry-urile axios) trimit
+    //    două POST-uri /start aproape simultan, iar Prisma `upsert` nu e atomic
+    //    împotriva inserturilor concurente — așa că try-create, iar dacă cad
+    //    pe unique constraint (P2002) reîncărcăm rândul existent.
+    let attempt;
+    try {
         attempt = await prisma.levelAttempt.create({
             data: { userId, gameId }
+        });
+    }
+    catch (e) {
+        if (e?.code !== "P2002")
+            throw e;
+        attempt = await prisma.levelAttempt.findUniqueOrThrow({
+            where: { userId_gameId: { userId, gameId } }
         });
     }
     // Returnăm datele sesiunii (când a început, dacă a folosit hint-uri)
@@ -77,20 +89,6 @@ router.post("/hint", auth_1.authenticateToken, async (req, res) => {
         data: { hintsUsed: true }
     });
     res.json({ message: "Hint tracked", hintsUsed: true });
-});
-// RESET LEVEL (Opțional: Dacă userul vrea să reseteze timerul)
-router.post("/reset", auth_1.authenticateToken, async (req, res) => {
-    const { gameId } = req.body;
-    const userId = req.user.id;
-    // Ștergem încercarea curentă
-    await prisma.levelAttempt.deleteMany({
-        where: { userId, gameId }
-    });
-    // Creăm una nouă imediat
-    const newAttempt = await prisma.levelAttempt.create({
-        data: { userId, gameId }
-    });
-    res.json({ message: "Timer reset", startTime: newAttempt.startedAt });
 });
 // VALIDATE FLAG (Stop timer & Save Score)
 router.post("/validate", auth_1.authenticateToken, async (req, res) => {
@@ -159,11 +157,14 @@ router.get("/leaderboard", auth_1.authenticateToken, async (_req, res) => {
             where: { hintsUsed: true },
             _count: { _all: true }
         });
-        const hintsMap = Object.fromEntries(hintsAgg.map((h) => [h.userId, h._count?._all ?? 0]));
+        const hintsMap = Object.fromEntries(hintsAgg.map((h) => [
+            h.userId,
+            h._count?._all ?? 0
+        ]));
         const userIds = top.map((t) => t.userId);
         const users = await prisma.user.findMany({
             where: { id: { in: userIds } },
-            select: { id: true, name: true, email: true, avatarUrl: true }
+            select: { id: true, name: true, avatarUrl: true }
         });
         const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
         const result = top.map((entry) => {
@@ -171,7 +172,6 @@ router.get("/leaderboard", auth_1.authenticateToken, async (_req, res) => {
             return {
                 userId: entry.userId,
                 name: user?.name || "Unknown",
-                email: user?.email || "",
                 avatarUrl: user?.avatarUrl || null,
                 totalScore: entry._sum?.value ?? 0,
                 solved: entry._count?.gameId ?? 0,
@@ -196,14 +196,13 @@ router.get("/leaderboard/level/:gameId", auth_1.authenticateToken, async (req, r
             take: 10,
             include: {
                 user: {
-                    select: { id: true, name: true, email: true, avatarUrl: true }
+                    select: { id: true, name: true, avatarUrl: true }
                 }
             }
         });
         const result = scores.map((s) => ({
             userId: s.userId,
             name: s.user?.name ?? "Unknown",
-            email: s.user?.email ?? "",
             avatarUrl: s.user?.avatarUrl ?? null,
             durationSeconds: s.durationSeconds,
             value: s.value,

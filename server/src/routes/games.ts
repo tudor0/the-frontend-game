@@ -101,24 +101,6 @@ router.post("/hint", authenticateToken, async (req: AuthRequest, res: any) => {
   res.json({ message: "Hint tracked", hintsUsed: true });
 });
 
-// RESET LEVEL (Opțional: Dacă userul vrea să reseteze timerul)
-router.post("/reset", authenticateToken, async (req: AuthRequest, res: any) => {
-  const { gameId } = req.body;
-  const userId = req.user.id;
-
-  // Ștergem încercarea curentă
-  await prisma.levelAttempt.deleteMany({
-    where: { userId, gameId }
-  });
-
-  // Creăm una nouă imediat
-  const newAttempt = await prisma.levelAttempt.create({
-    data: { userId, gameId }
-  });
-
-  res.json({ message: "Timer reset", startTime: newAttempt.startedAt });
-});
-
 // VALIDATE FLAG (Stop timer & Save Score)
 router.post(
   "/validate",
