@@ -6,10 +6,8 @@ import gameRoutes from "./routes/games";
 import authRoutes from "./routes/auth";
 
 const app = express();
-const prisma = new PrismaClient(); // (Optional aici, folosit in rute)
+const prisma = new PrismaClient();
 
-// CONFIGURARE CORS
-// Critic: "credentials: true" permite Frontend-ului să primească Cookie-ul
 app.use(
   cors({
     origin: ["http://localhost:5173", "https://the-frontend-game.vercel.app"],
@@ -19,9 +17,8 @@ app.use(
 );
 
 app.use(express.json());
-app.use(cookieParser()); // CRITIC: Fără asta req.cookies e undefined
+app.use(cookieParser());
 
-// RUTE
 app.use("/api/auth", authRoutes);
 app.use("/api/games", gameRoutes);
 

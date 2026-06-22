@@ -53,7 +53,7 @@ export default function Login() {
   // Google Login Callback
   const handleGoogleSuccess = async (credentialResponse: any) => {
     try {
-      // Trimitem token-ul de la Google la backend-ul nostru
+
       const res = await api.post("/auth/google", {
         token: credentialResponse.credential
       });

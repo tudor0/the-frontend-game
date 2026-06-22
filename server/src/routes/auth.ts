@@ -13,7 +13,6 @@ const router = Router();
 const prisma = new PrismaClient();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// 1. REGISTER (Email/Pass)
 router.post("/register", async (req: Request, res: Response): Promise<any> => {
   const { email, password, name } = req.body;
   if (!email || !password || !name)
@@ -30,13 +29,11 @@ router.post("/register", async (req: Request, res: Response): Promise<any> => {
   }
 });
 
-// 2. LOGIN (Email/Pass)
 router.post("/login", async (req: Request, res: Response): Promise<any> => {
   const { email, password } = req.body;
 
   const user = await prisma.user.findUnique({ where: { email } });
 
-  // Verificăm dacă userul există și DACĂ are parolă (cei cu Google nu au)
   if (!user || !user.password) {
     return res
       .status(401)
@@ -46,7 +43,6 @@ router.post("/login", async (req: Request, res: Response): Promise<any> => {
   const isValid = await bcrypt.compare(password, user.password);
   if (!isValid) return res.status(401).json({ error: "Invalid credentials" });
 
-  // Tokeni
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
 
@@ -65,12 +61,10 @@ router.post("/login", async (req: Request, res: Response): Promise<any> => {
   });
 });
 
-// 3. GOOGLE LOGIN (NOU)
 router.post("/google", async (req: Request, res: Response): Promise<any> => {
-  const { token } = req.body; // Primim token-ul de la Frontend
+  const { token } = req.body;
 
   try {
-    // Verificăm token-ul cu serverele Google
     const ticket = await googleClient.verifyIdToken({
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID
@@ -82,25 +76,19 @@ router.post("/google", async (req: Request, res: Response): Promise<any> => {
 
     const { email, name, picture } = payload;
 
-    // Căutăm userul sau îl creăm (Upsert)
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      // Dacă nu există, îl creăm acum
       user = await prisma.user.create({
         data: {
           email,
           name: name || "Google User",
           avatarUrl: picture,
-          password: null // Nu are parolă locală
+          password: null
         }
       });
-    } else {
-      // Daca exista, facem update la avatar (optional)
-      // Daca userul avea cont cu parola inainte, acum va putea intra si cu Google
     }
 
-    // Emitem Tokenii noștri interni (ca la login normal)
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
@@ -123,7 +111,6 @@ router.post("/google", async (req: Request, res: Response): Promise<any> => {
   }
 });
 
-// 4. REFRESH & LOGOUT (Rămân la fel, doar le includ pentru completitudine)
 router.post("/refresh", async (req, res): Promise<any> => {
   const token = req.cookies.jid;
   if (!token) return res.json({ ok: false, accessToken: "" });
@@ -134,7 +121,6 @@ router.post("/refresh", async (req, res): Promise<any> => {
       process.env.REFRESH_TOKEN_SECRET as string
     );
 
-    // Verify token exists in DB and not expired
     const stored = await prisma.refreshToken.findUnique({
       where: { token }
     });
@@ -146,7 +132,6 @@ router.post("/refresh", async (req, res): Promise<any> => {
     });
     if (!user) return res.json({ ok: false, accessToken: "" });
 
-    // rotate refresh token
     await prisma.refreshToken.delete({ where: { token } }).catch(() => {});
     const newRefresh = generateRefreshToken(user);
     await prisma.refreshToken.create({
@@ -169,7 +154,6 @@ router.post("/logout", async (req, res) => {
   const token = req.cookies.jid;
   if (token)
     await prisma.refreshToken.delete({ where: { token } }).catch(() => {});
-  // Opțiunile trebuie să coincidă cu cele de la setare, altfel browserul nu șterge cookie-ul
   res.clearCookie("jid", {
     path: "/api/auth/refresh",
     httpOnly: true,

@@ -5,25 +5,17 @@ import { authenticateToken, AuthRequest } from "../middleware/auth";
 const router = Router();
 const prisma = new PrismaClient();
 
-// ==========================================
-// 1. REGISTRUL DE SOLUȚII (15 NIVELE)
-// ==========================================
 const SOLUTIONS: Record<string, string> = {
-  // DOM & HTML
   "level-1": "INVISIBLE_INK",
   "level-2": "DEV_COMMENTS_ARE_PUBLIC",
   "level-3": "META_DATA_KING",
   "level-4": "ATTR_REMOVER",
   "level-5": "DISPLAY_NONE_MASTER",
-
-  // NETWORK
   "level-6": "HEADER_MASTER",
   "level-7": "BAD_REQUEST_SPY",
   "level-8": "PATIENCE_IS_A_VIRTUE",
   "level-9": "FOUR_OH_FOUR_FOUND",
   "level-10": "PARAMS_DETECTIVE",
-
-  // STORAGE & JS
   "level-11": "COOKIE_DOUGH",
   "level-12": "LOCAL_STORAGE_HERO",
   "level-13": "SESSION_STORAGE_SAVER",
@@ -31,11 +23,6 @@ const SOLUTIONS: Record<string, string> = {
   "level-15": "BASE64_DECODER"
 };
 
-// ==========================================
-// 2. LOGICA DE JOC (Start, Hint, Validate)
-// ==========================================
-
-// START LEVEL (Pornim cronometrul)
 router.post("/start", authenticateToken, async (req: AuthRequest, res: any) => {
   const { gameId } = req.body;
   const userId = req.user.id;
@@ -44,7 +31,6 @@ router.post("/start", authenticateToken, async (req: AuthRequest, res: any) => {
     return res.status(404).json({ error: "Game ID not found" });
   }
 
-  // 1. Verificăm dacă e deja finalizat
   const existingScore = await prisma.score.findUnique({
     where: { userId_gameId: { userId, gameId } }
   });
@@ -56,10 +42,6 @@ router.post("/start", authenticateToken, async (req: AuthRequest, res: any) => {
       value: existingScore.value
     });
 
-  // 2. Pornim sau reluăm sesiunea. StrictMode (și retry-urile axios) trimit
-  //    două POST-uri /start aproape simultan, iar Prisma `upsert` nu e atomic
-  //    împotriva inserturilor concurente — așa că try-create, iar dacă cad
-  //    pe unique constraint (P2002) reîncărcăm rândul existent.
   let attempt;
   try {
     attempt = await prisma.levelAttempt.create({
@@ -72,7 +54,6 @@ router.post("/start", authenticateToken, async (req: AuthRequest, res: any) => {
     });
   }
 
-  // Returnăm datele sesiunii (când a început, dacă a folosit hint-uri)
   res.json({
     status: "active",
     startTime: attempt.startedAt,
@@ -81,7 +62,6 @@ router.post("/start", authenticateToken, async (req: AuthRequest, res: any) => {
   });
 });
 
-// USE HINT (NOU: Trackuim dacă userul a cerut ajutor)
 router.post("/hint", authenticateToken, async (req: AuthRequest, res: any) => {
   const { gameId } = req.body;
   const userId = req.user.id;
@@ -92,7 +72,6 @@ router.post("/hint", authenticateToken, async (req: AuthRequest, res: any) => {
 
   if (!attempt) return res.status(400).json({ error: "Level not started" });
 
-  // Marcăm în DB că s-a folosit hint
   await prisma.levelAttempt.update({
     where: { id: attempt.id },
     data: { hintsUsed: true }
@@ -101,7 +80,6 @@ router.post("/hint", authenticateToken, async (req: AuthRequest, res: any) => {
   res.json({ message: "Hint tracked", hintsUsed: true });
 });
 
-// VALIDATE FLAG (Stop timer & Save Score)
 router.post(
   "/validate",
   authenticateToken,
@@ -120,13 +98,11 @@ router.post(
     const correctAnswer = SOLUTIONS[gameId];
 
     if (cleanInput === correctAnswer) {
-      // Calculăm durata
       const durationSeconds = Math.floor(
         (Date.now() - new Date(attempt.startedAt).getTime()) / 1000
       );
 
       try {
-        // Salvăm scorul final cu TOATE metricile
         await prisma.score.create({
           data: {
             userId,
@@ -134,11 +110,10 @@ router.post(
             value: 100,
             durationSeconds,
             wrongAttempts: attempt.wrongAttempts,
-            hintsUsed: attempt.hintsUsed // Aici salvăm daca a folosit hint
+            hintsUsed: attempt.hintsUsed
           }
         });
 
-        // Curățăm sesiunea temporară
         await prisma.levelAttempt.delete({ where: { id: attempt.id } });
 
         return res.json({ success: true, duration: durationSeconds });
@@ -146,7 +121,6 @@ router.post(
         return res.status(500).json({ error: "Could not save score" });
       }
     } else {
-      // Incrementăm greșelile
       await prisma.levelAttempt.update({
         where: { id: attempt.id },
         data: { wrongAttempts: { increment: 1 } }
@@ -156,7 +130,6 @@ router.post(
   }
 );
 
-// GET DASHBOARD STATS
 router.get(
   "/my-stats",
   authenticateToken,
@@ -169,7 +142,6 @@ router.get(
   }
 );
 
-// LEADERBOARD: top users by total score
 router.get(
   "/leaderboard",
   authenticateToken,
@@ -278,42 +250,32 @@ router.get(
   }
 );
 
-// ==========================================
-// 3. RUTELE SPECIALE (CTF TRICKS)
-// ==========================================
-
-// Level 6: Headers
 router.get("/clue/headers", (req, res) => {
   res.setHeader("X-Secret-Flag", "HEADER_MASTER");
   res.setHeader("Access-Control-Expose-Headers", "X-Secret-Flag");
   res.json({ message: "Check response headers!" });
 });
 
-// Level 7: Bad Request
 router.get("/clue/bad-request", (req, res) => {
   res
     .status(400)
     .json({ error: "BAD_REQUEST", details: "Flag: BAD_REQUEST_SPY" });
 });
 
-// Level 8: Slow Request
 router.get("/clue/slow", (req, res) => {
   setTimeout(() => {
     res.json({ flag: "PATIENCE_IS_A_VIRTUE" });
   }, 4000);
 });
 
-// Level 9: 404
 router.get("/clue/missing-resource", (req, res) => {
   res.status(404).json({ error: "Not Found", flag: "FOUR_OH_FOUR_FOUND" });
 });
 
-// Level 10: Params
 router.get("/clue/params", (req, res) => {
   res.json({ message: "Check URL params in Network Tab." });
 });
 
-// Level 11: Cookies
 router.get("/clue/cookie", (req, res) => {
   res.cookie("flag_lvl11", "COOKIE_DOUGH", { maxAge: 900000, httpOnly: false });
   res.json({ message: "Check Cookies in Application Tab." });
