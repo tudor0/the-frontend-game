@@ -5,3 +5,6 @@
 !/client/
 !/server/
 !/.gitignore
+!/README.md
+!/GHID_INSTALARE.md
+!/docker-compose.yml
